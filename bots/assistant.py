@@ -1,9 +1,9 @@
-import os
 import asyncio
 import logging
 from typing import List, Dict, AsyncGenerator, Optional, Union
 from dotenv import load_dotenv
 from anthropic import AsyncAnthropic, APIError
+from config import config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -31,8 +31,7 @@ class AsyncAnthropicAssistant:
 
     async def initialize(self):
         try:
-            load_dotenv(dotenv_path='./.env')
-            api_key = os.getenv('ANTHROPIC_API_KEY')
+            api_key = config.ANTHROPIC_API_KEY
             if not api_key:
                 raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
             self.client = AsyncAnthropic(api_key=api_key)
