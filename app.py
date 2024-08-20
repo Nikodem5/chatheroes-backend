@@ -1,10 +1,25 @@
 from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 from bson import ObjectId
 from services.user_service import create_user, get_user_by_id, authenticate_user
+from bots.assistant import AsyncAnthropicAssistant
+import asyncio
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Replace with your React app's URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class UserCreate(BaseModel):
     username: str
@@ -63,6 +78,36 @@ def login(user_credentials: UserLogin):
         )
     #TODO creatin and returning a token
     return {"message": "Login succesful", "user_id": str(user._id)}
+
+# @app.get('/get_response')
+# def get_response(message: str):
+#     async def response_generator():
+#         async with AsyncAnthropicAssistant as assistant:
+#             assistant.add_message("user", message)
+#             async for chunk in await assistant.get_response(stream=True):
+#                 yield chunk
+    
+#     return StreamingResponse(response_generator(), media_type="text/plain")
+
+class Message(BaseModel):
+    type: str
+    content: str
+
+class ConversationRequest(BaseModel):
+    messages: List[Message]
+
+@app.post('/get_ns_response')
+async def get_ns_response(conversation: ConversationRequest):
+    logger.info(f"Received conversation: {conversation}")
+    try:
+        async with AsyncAnthropicAssistant(system_prompt="Jesteś pomocnym asystentem") as assistant:
+            for message in conversation.messages:
+                assistant.add_message(message.type, message.content)
+            response = await assistant.get_response()
+        return {"response": response}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occured: {str(e)}")
+
 
 if __name__ == "__main__":
     import uvicorn
